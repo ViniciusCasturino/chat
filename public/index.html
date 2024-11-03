@@ -1,74 +1,143 @@
-<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat em Tempo Real</title>
+    <title></title>
     <style>
         body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 50px; }
         #chat-box { width: 300px; height: 400px; border: 1px solid #333; overflow-y: auto; padding: 10px; margin-bottom: 10px; }
-        #message-input, #name-input { width: 200px; padding: 8px; }
+        #message-input { width: 200px; padding: 8px; }
         #send-btn { padding: 8px 12px; cursor: pointer; }
+        #login-section, #register-section { display: none; }
+        img { width: 300px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <h2>Chat em Tempo Real</h2>
-    <div id="chat-box"></div>
-    <input type="text" id="name-input" placeholder="Digite seu nome">
-    <button id="enter-chat-btn">Entrar no Chat</button>
-    <input type="text" id="message-input" placeholder="Digite sua mensagem" style="display: none;">
-    <button id="send-btn" style="display: none;">Enviar</button>
+    <!-- Logo -->
+    <img src="logo.png" alt="Logo da Aplicação">
+
+    <!-- Seção de opções de autenticação -->
+    <div id="auth-options">
+        <button id="show-register-btn">Cadastrar-se</button>
+        <button id="show-login-btn">Entrar</button>
+    </div>
+
+    <!-- Seção de Cadastro -->
+    <div id="register-section">
+        <h3>Cadastrar-se</h3>
+        <input type="text" id="register-username" placeholder="Nome de usuário">
+        <input type="password" id="register-password" placeholder="Senha">
+        <button id="register-btn">Cadastrar</button>
+        <button id="cancel-register-btn">Cancelar</button>
+    </div>
+
+    <!-- Seção de Login -->
+    <div id="login-section">
+        <h3>Entrar</h3>
+        <input type="text" id="username" placeholder="Nome de usuário">
+        <input type="password" id="password" placeholder="Senha">
+        <button id="login-btn">Entrar</button>
+        <button id="cancel-login-btn">Cancelar</button>
+    </div>
+
+    <!-- Seção do Chat -->
+    <div id="chat-section" style="display: none;">
+        <div id="chat-box"></div>
+        <input type="text" id="message-input" placeholder="Digite sua mensagem">
+        <button id="send-btn">Enviar</button>
+    </div>
 
     <script>
-        const chatBox = document.getElementById("chat-box");
-        const nameInput = document.getElementById("name-input");
-        const enterChatBtn = document.getElementById("enter-chat-btn");
-        const messageInput = document.getElementById("message-input");
-        const sendBtn = document.getElementById("send-btn");
+        let token = "";
 
-        let userName = "";
+        // Elementos de interface
+        const authOptions = document.getElementById("auth-options");
+        const registerSection = document.getElementById("register-section");
+        const loginSection = document.getElementById("login-section");
+        const chatSection = document.getElementById("chat-section");
 
-        // Conectar ao servidor WebSocket
-        const socket = new WebSocket("ws://localhost:3000");
+        // Alternar entre registro e login
+        document.getElementById("show-register-btn").addEventListener("click", () => {
+            authOptions.style.display = "none";
+            registerSection.style.display = "block";
+        });
 
-        // Receber mensagens do servidor e exibir no chat
-        socket.onmessage = (event) => {
-            const { nome, mensagem } = JSON.parse(event.data);
-            const messageElement = document.createElement("div");
-            messageElement.textContent = `${nome}: ${mensagem}`;
-            chatBox.appendChild(messageElement);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        };
+        document.getElementById("show-login-btn").addEventListener("click", () => {
+            authOptions.style.display = "none";
+            loginSection.style.display = "block";
+        });
 
-        // Solicitar nome antes de entrar no chat
-        enterChatBtn.addEventListener("click", () => {
-            const name = nameInput.value.trim();
-            if (name) {
-                userName = name;
-                nameInput.style.display = "none";
-                enterChatBtn.style.display = "none";
-                messageInput.style.display = "inline";
-                sendBtn.style.display = "inline";
-                alert(`Bem-vindo, ${userName}! Você agora pode enviar mensagens.`);
+        document.getElementById("cancel-register-btn").addEventListener("click", () => {
+            registerSection.style.display = "none";
+            authOptions.style.display = "block";
+        });
+
+        document.getElementById("cancel-login-btn").addEventListener("click", () => {
+            loginSection.style.display = "none";
+            authOptions.style.display = "block";
+        });
+
+        // Cadastro de usuário
+        document.getElementById("register-btn").addEventListener("click", async () => {
+            const username = document.getElementById("register-username").value;
+            const password = document.getElementById("register-password").value;
+
+            const response = await fetch("/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message);
+                registerSection.style.display = "none";
+                loginSection.style.display = "block";
+            } else {
+                alert(data.message);
             }
         });
 
-        // Enviar mensagem ao servidor com o nome do usuário
-        sendBtn.addEventListener("click", () => {
-            const mensagem = messageInput.value.trim();
-            if (mensagem) {
-                socket.send(JSON.stringify({ nome: userName, mensagem }));
-                messageInput.value = "";
+        // Login de usuário
+        document.getElementById("login-btn").addEventListener("click", async () => {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                token = data.token;
+                loginSection.style.display = "none";
+                chatSection.style.display = "block";
+                connectToWebSocket();
+            } else {
+                alert(data.message);
             }
         });
 
-        // Também enviar mensagem ao pressionar "Enter"
-        messageInput.addEventListener("keypress", (event) => {
-            if (event.key === "Enter") {
-                sendBtn.click();
-            }
-        });
+        // Conexão WebSocket autenticada
+        function connectToWebSocket() {
+            const socket = new WebSocket(`ws://localhost:3000?token=${token}`);
+
+            socket.onmessage = (event) => {
+                const { nome, mensagem } = JSON.parse(event.data);
+                const messageElement = document.createElement("div");
+                messageElement.textContent = `${nome}: ${mensagem}`;
+                document.getElementById("chat-box").appendChild(messageElement);
+            };
+
+            document.getElementById("send-btn").addEventListener("click", () => {
+                const mensagem = document.getElementById("message-input").value;
+                socket.send(JSON.stringify({ mensagem }));
+                document.getElementById("message-input").value = "";
+            });
+        }
     </script>
 </body>
 </html>
